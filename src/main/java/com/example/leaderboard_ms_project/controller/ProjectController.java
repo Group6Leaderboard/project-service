@@ -11,7 +11,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.*;
+import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/projects")
@@ -25,46 +26,50 @@ public class ProjectController {
     @Transactional
     public ResponseEntity<ApiResponse<List<ProjectResponseDto>>> getAllProjects() {
         List<ProjectResponseDto> projects = projectService.getAllProjects();
-        return ResponseEntity.ok(
-                new ApiResponse<>(200, "Projects fetched successfully", projects)
-        );
-    }
-
-
-    @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<ProjectResponseDto>> getProjectById(@PathVariable UUID id) {
-        ProjectResponseDto project = projectService.getProjectById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Project not found"));
-
-        return ResponseEntity.ok(new ApiResponse<>(200, "Project fetched successfully", project));
+        return ApiResponse.success(projects, "Projects fetched successfully");
     }
 
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<ProjectResponseDto>> createProject(@RequestBody ProjectDto projectDto) {
+        System.out.println("In func");
         ProjectResponseDto savedProject = projectService.createProject(projectDto);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(new ApiResponse<>(201, "Project created successfully", savedProject));
+        return ApiResponse.created(savedProject, "Project created successfully");
     }
 
+
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MENTOR')")
     public ResponseEntity<ApiResponse<ProjectResponseDto>> updateProject(
             @PathVariable UUID id,
             @RequestBody ProjectDto projectDto) {
-
         ProjectResponseDto updatedProject = projectService.updateProject(id, projectDto);
-        return ResponseEntity.ok(new ApiResponse<>(200, "Project updated successfully", updatedProject));
+        return ApiResponse.success(updatedProject, "Project updated successfully");
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<ProjectResponseDto>> getProjectById(@PathVariable UUID id) {
+        System.out.println("In func");
+        ProjectResponseDto project = projectService.getProjectById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found"));
+        return ApiResponse.success(project, "Project fetched successfully");
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<String>> deleteProject(@PathVariable UUID id) {
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deleteProject(@PathVariable UUID id) {
         boolean deleted = projectService.deleteProject(id);
         if (deleted) {
-            return ResponseEntity.ok(new ApiResponse<>(200, "Project deleted successfully", null));
+            return ApiResponse.success(null, "Project deleted successfully");
         } else {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(new ApiResponse<>(404, "Project not found", null));
+            return ApiResponse.notFound("Project not found");
         }
+    }
+
+    // Internal API for other microservices to use
+    @GetMapping("/internal/exists/{id}")
+    public ResponseEntity<Boolean> checkProjectExists(@PathVariable UUID id) {
+        return ResponseEntity.ok(projectService.existsById(id));
     }
 }

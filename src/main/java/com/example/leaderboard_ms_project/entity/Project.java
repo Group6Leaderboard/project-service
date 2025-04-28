@@ -2,15 +2,11 @@ package com.example.leaderboard_ms_project.entity;
 
 
 import jakarta.persistence.*;
-import lombok.Data;
-import com.example.leaderboard_ms_project.entity.User;
-
-
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Data
+@Table(name = "project")
 public class Project {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
@@ -20,14 +16,12 @@ public class Project {
     private String description;
     private int score;
 
+    private UUID mentor;
+    private UUID student;
 
-    @ManyToOne
-    @JoinColumn(name = "mentor_id")
-    private User mentor;
+    private UUID college;
 
-    @ManyToOne
-    @JoinColumn(name = "college_id", referencedColumnName = "id")
-    private College college;
+
 
     private boolean isDeleted= false;
 
@@ -67,19 +61,19 @@ public class Project {
         this.score = score;
     }
 
-    public User getMentor() {
+    public UUID getMentor() {
         return mentor;
     }
 
-    public void setMentor(User mentor) {
+    public void setMentor(UUID mentor) {
         this.mentor = mentor;
     }
 
-    public College getCollege() {
+    public UUID getCollege() {
         return college;
     }
 
-    public void setCollege(College college) {
+    public void setCollege(UUID college) {
         this.college = college;
     }
 
@@ -107,9 +101,11 @@ public class Project {
         this.updatedAt = updatedAt;
     }
 
+    public UUID getStudent() {
+        return student;
+    }
 
-
-
-
-
+    public void setStudent(UUID student) {
+        this.student = student;
+    }
 }

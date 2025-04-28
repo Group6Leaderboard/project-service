@@ -1,6 +1,5 @@
 package com.example.leaderboard_ms_project.config;
 
-
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
