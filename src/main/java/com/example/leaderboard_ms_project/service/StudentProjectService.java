@@ -3,116 +3,245 @@ package com.example.leaderboard_ms_project.service;
 import com.example.leaderboard_ms_project.dto.ApiResponse;
 import com.example.leaderboard_ms_project.dto.ProjectDto;
 import com.example.leaderboard_ms_project.dto.Studentproject;
-import com.example.leaderboard_ms_project.dto.UserResponseDto;
+import com.example.leaderboard_ms_project.dto.UserDto;
 import com.example.leaderboard_ms_project.entity.Project;
 import com.example.leaderboard_ms_project.entity.StudentProject;
-import com.example.leaderboard_ms_project.entity.User;
 import com.example.leaderboard_ms_project.exception.ResourceNotFoundException;
 import com.example.leaderboard_ms_project.repository.ProjectRepository;
 import com.example.leaderboard_ms_project.repository.StudentProjectRepository;
-import com.example.leaderboard_ms_project.repository.UserRepository;
-import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 public class StudentProjectService {
 
-    private final StudentProjectRepository studentProjectRepository;
-    private final UserRepository userRepository;
-    private final ProjectRepository projectRepository;
+    @Autowired
+    private RestTemplate restTemplate;
 
-    public StudentProjectService(StudentProjectRepository studentProjectRepository, UserRepository userRepository, ProjectRepository projectRepository) {
-        this.studentProjectRepository = studentProjectRepository;
-        this.userRepository = userRepository;
-        this.projectRepository = projectRepository;
-    }
+    @Autowired
+    private StudentProjectRepository studentProjectRepository;
+
+    @Autowired
+    private ProjectRepository projectRepository;
+
+    @Value("${user.service.url}")
+    private String userServiceUrl;
+
 
     public ApiResponse<Studentproject> assignProjectToStudent(UUID studentId, UUID projectId) {
-        Optional<User> studentOpt = userRepository.findById(studentId);
-        if (studentOpt.isEmpty()) {
-            throw new ResourceNotFoundException("Student not found with ID: " + studentId);
+        String token = getTokenFromContext();
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + token);
+        HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
+
+        try {
+            // Fetch the student details from user service
+            String studentUrl = userServiceUrl + "/api/users/id/" + studentId;
+            Map<String, Object> userMap = restTemplate.exchange(
+                    studentUrl,
+                    HttpMethod.GET,
+                    requestEntity,
+                    new ParameterizedTypeReference<Map<String, Object>>() {}
+            ).getBody();
+
+            if (userMap == null || userMap.get("id") == null || userMap.get("college_id") == null) {
+                throw new ResourceNotFoundException("Student not found with ID: " + studentId);
+            }
+
+            // Extract the student's college ID
+            UUID studentCollegeId = UUID.fromString(userMap.get("college_id").toString());
+
+            // Fetch the project from the repository
+            Project project = projectRepository.findByIdAndIsDeletedFalse(projectId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Project not found with ID: " + projectId));
+
+            // Verify student and project belong to the same college
+            if (project.getCollege() != null && studentCollegeId != null &&
+                    !project.getCollege().equals(studentCollegeId)) {
+                throw new IllegalArgumentException("Student and Project belong to different colleges!");
+            }
+
+            // Check if the student is already assigned to this project
+            Optional<StudentProject> existingAssignment = studentProjectRepository
+                    .findByStudentAndProjectAndIsDeletedFalse(studentId, projectId);
+
+            if (existingAssignment.isPresent()) {
+                throw new IllegalArgumentException("This student is already assigned to this project");
+            }
+
+            // Create new assignment
+            StudentProject studentProject = new StudentProject();
+            studentProject.setStudent(studentId);
+            studentProject.setProject(projectId);
+            studentProject.setCollege(studentCollegeId);
+            studentProject.setCreatedAt(LocalDateTime.now());
+
+            // Save the entity to the repository
+            StudentProject savedEntity = studentProjectRepository.save(studentProject);
+
+            // Prepare DTO to return
+            Studentproject dto = new Studentproject(
+                    savedEntity.getId(),
+                    savedEntity.getStudent(),
+                    savedEntity.getProject()
+            );
+
+            // Return success response
+            return new ApiResponse<>(200, "Success", dto);
+        } catch (Exception e) {
+            throw new ResourceNotFoundException("Error verifying student or project: " + e.getMessage());
         }
-
-        Optional<Project> projectOpt = projectRepository.findById(projectId);
-        if (projectOpt.isEmpty()) {
-            throw new ResourceNotFoundException("Project not found with ID: " + projectId);
-        }
-
-        User student = studentOpt.get();
-        Project project = projectOpt.get();
-
-        if (!student.getCollege().getId().equals(project.getCollege().getId())) {
-            throw new IllegalArgumentException("Student and Project belong to different colleges!");
-        }
-
-        Optional<StudentProject> existingAssignment = studentProjectRepository.findByStudentAndProjectAndIsDeletedFalse(student, project);
-        if (existingAssignment.isPresent()) {
-            throw new IllegalArgumentException("This student is already assigned to this project");
-        }
-
-        StudentProject studentEntity = new StudentProject();
-        studentEntity.setStudent(student);
-        studentEntity.setProject(project);
-        studentEntity.setCreatedAt(LocalDateTime.now());
-
-        StudentProject savedEntity = studentProjectRepository.save(studentEntity);
-
-        Studentproject dto = new Studentproject(
-                savedEntity.getId(),
-                savedEntity.getStudent().getId(),
-                savedEntity.getProject().getId()
-        );
-
-        return new ApiResponse<>(200, "Success", dto);
     }
-
-
     public ApiResponse<List<Studentproject>> getProjectsForStudent(UUID studentId) {
-        if (!userRepository.existsById(studentId)) {
-            throw new ResourceNotFoundException("Student not found with ID: " + studentId);
+        // Verify student exists via user service
+        String token = getTokenFromContext();
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + token);
+        HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
+
+        try {
+            String studentUrl = userServiceUrl + "/api/users/" + studentId;
+            Map<String, Object> userMap = restTemplate.exchange(
+                    studentUrl,
+                    HttpMethod.GET,
+                    requestEntity,
+                    new ParameterizedTypeReference<Map<String, Object>>() {}
+            ).getBody();
+
+            if (userMap == null || userMap.get("id") == null) {
+                throw new ResourceNotFoundException("Student not found with ID: " + studentId);
+            }
+
+            List<StudentProject> studentProjects = studentProjectRepository.findByStudentAndIsDeletedFalse(studentId);
+
+            List<Studentproject> dtoList = studentProjects.stream()
+                    .map(sp -> new Studentproject(
+                            sp.getId(),
+                            sp.getStudent(),
+                            sp.getProject()
+                    ))
+                    .collect(Collectors.toList());
+
+            return new ApiResponse<>(200, "Success", dtoList);
+        } catch (Exception e) {
+            throw new ResourceNotFoundException("Error fetching projects for student: " + e.getMessage());
         }
-
-        List<StudentProject> studentProjects = studentProjectRepository.findByStudentIdAndIsDeletedFalse(studentId);
-
-        List<Studentproject> dtoList = studentProjects.stream()
-                .map(sp -> new Studentproject(
-                        sp.getId(),
-                        sp.getStudent().getId(),
-                        sp.getProject().getId()
-                ))
-                .collect(Collectors.toList());
-
-        return new ApiResponse<>(200, "Success", dtoList);
     }
 
-    public ApiResponse<List<Studentproject>> getStudentsForProject(UUID projectId) {
-        if (!projectRepository.existsById(projectId)) {
+    @Transactional
+    public ApiResponse<List<Map<String, Object>>> getUsersForProject(UUID projectId) {
+        // Verify project exists
+        if (!projectRepository.existsByIdAndIsDeletedFalse(projectId)) {
             throw new ResourceNotFoundException("Project not found with ID: " + projectId);
         }
 
-        List<StudentProject> studentProjects = studentProjectRepository.findByProjectIdAndIsDeletedFalse(projectId);
+        List<StudentProject> studentProjects = studentProjectRepository.findByProjectAndIsDeletedFalse(projectId);
 
-        List<Studentproject> dtoList = studentProjects.stream()
-                .map(sp -> new Studentproject(
-                        sp.getId(),
-                        sp.getStudent().getId(),
-                        sp.getProject().getId()
-                ))
+        List<UUID> studentIds = studentProjects.stream()
+                .map(StudentProject::getStudent)
                 .collect(Collectors.toList());
 
-        return new ApiResponse<>(200, "Success", dtoList);
+        if (studentIds.isEmpty()) {
+            return new ApiResponse<>(200, "No students assigned to this project", List.of());
+        }
+
+        // Fetch user details for each student from user service
+        String token = getTokenFromContext();
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + token);
+        HttpEntity<List<UUID>> requestEntity = new HttpEntity<>(studentIds, headers);
+
+        try {
+            ResponseEntity<Map<String, Object>> usersResponse = restTemplate.exchange(
+                    userServiceUrl + "/api/users/batch",
+                    HttpMethod.POST,
+                    requestEntity,
+                    new ParameterizedTypeReference<Map<String, Object>>() {}
+            );
+
+            if (!usersResponse.getStatusCode().is2xxSuccessful() || usersResponse.getBody() == null) {
+                throw new ResourceNotFoundException("Failed to fetch student details");
+            }
+
+            // Extract list of users from the response
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> usersList = (List<Map<String, Object>>) usersResponse.getBody().get("response");
+
+            return new ApiResponse<>(200, "Success", usersList);
+        } catch (Exception e) {
+            throw new ResourceNotFoundException("Error fetching user details: " + e.getMessage());
+        }
+    }
+
+    @Transactional
+    public ApiResponse<List<ProjectDto>> getProjectsForStudents(UUID student) {
+        // Verify student exists via user service
+        String token = getTokenFromContext();
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + token);
+        HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
+
+        try {
+            String studentUrl = userServiceUrl + "/api/users/" + student;
+            Map<String, Object> userMap = restTemplate.exchange(
+                    studentUrl,
+                    HttpMethod.GET,
+                    requestEntity,
+                    new ParameterizedTypeReference<Map<String, Object>>() {}
+            ).getBody();
+
+            if (userMap == null || userMap.get("id") == null) {
+                throw new ResourceNotFoundException("Student not found with ID: " + student);
+            }
+
+            List<StudentProject> studentProjects = studentProjectRepository.findByStudentAndIsDeletedFalse(student);
+
+            List<ProjectDto> projectDtos = studentProjects.stream()
+                    .map(sp -> {
+                        try {
+                            // Fetch the Project by its UUID
+                            Project project = projectRepository.findById(sp.getProject())
+                                    .orElseThrow(() -> new ResourceNotFoundException("Project not found with ID: " + sp.getProject()));
+
+                            ProjectDto projectDto = new ProjectDto();
+                            projectDto.setId(project.getId());
+                            projectDto.setName(project.getName());
+                            projectDto.setDescription(project.getDescription());
+                            projectDto.setScore(project.getScore());
+                            projectDto.setMentorId(project.getMentor());
+                            projectDto.setCollegeId(project.getCollege());
+                            projectDto.setCreatedAt(project.getCreatedAt());
+                            return projectDto;
+                        } catch (Exception e) {
+                            throw new ResourceNotFoundException("Error fetching project details: " + e.getMessage());
+                        }
+                    })
+                    .collect(Collectors.toList());
+
+            return new ApiResponse<>(200, "Projects fetched for student", projectDtos);
+        } catch (Exception e) {
+            throw new ResourceNotFoundException("Error fetching projects for student: " + e.getMessage());
+        }
     }
 
 
-    // ✅ Soft delete project assignment
+
+
+
+
     public ApiResponse<String> deleteStudentProject(UUID studentProjectId) {
         StudentProject studentProject = studentProjectRepository.findByIdAndIsDeletedFalse(studentProjectId)
                 .orElseThrow(() -> new ResourceNotFoundException("StudentProject not found with ID: " + studentProjectId));
@@ -130,57 +259,28 @@ public class StudentProjectService {
         List<Studentproject> dtoList = studentProjects.stream()
                 .map(sp -> new Studentproject(
                         sp.getId(),
-                        sp.getStudent().getId(),
-                        sp.getProject().getId()
+                        sp.getStudent(),
+                        sp.getProject()
                 ))
                 .collect(Collectors.toList());
 
         return new ApiResponse<>(200, "Success", dtoList);
     }
 
-    @Transactional
-    public List<UserResponseDto> getUserDtosForProject(UUID projectId) {
-        List<StudentProject> studentProjects = studentProjectRepository.findByProjectIdAndIsDeletedFalse(projectId);
 
-        List<UUID> studentIds = studentProjects.stream()
-                .map(sp -> sp.getStudent().getId())
-                .collect(Collectors.toList());
 
-        List<User> users = userRepository.findByIdInAndIsDeletedFalse(studentIds);
-
-        return users.stream()
-                .map(user -> new UserResponseDto(
-                        user.getId(),
-                        user.getName(),
-                        user.getEmail(),
-                        user.getPhone(),
-                        user.getScore(),
-                        user.getCollege().getName(),
-                        user.getRole().getName(),
-                        user.getImage()
-                ))
-                .collect(Collectors.toList());
-    }
-    @Transactional
-    public List<ProjectDto> getProjectsForStudents(UUID studentId) {
-        List<StudentProject> studentProjects = studentProjectRepository.findByStudentIdAndIsDeletedFalse(studentId);
-
+    public List<UUID> getProjectIdsForStudent(UUID studentId) {
+        List<StudentProject> studentProjects = studentProjectRepository.findByStudentAndIsDeletedFalse(studentId);
         return studentProjects.stream()
-                .map(sp -> {
-                    Project project = sp.getProject();
-                    return new ProjectDto(
-                            project.getId(),
-                            project.getName(),
-                            project.getDescription(),
-                            project.getScore(),
-                            project.getMentor().getId(),
-                            project.getCollege().getId(),
-                            project.getCreatedAt()
-                    );
-                })
+                .map(StudentProject::getProject)
                 .collect(Collectors.toList());
     }
 
+
+    private String getTokenFromContext() {
+        // Get the JWT token from the security context
+        return SecurityContextHolder.getContext().getAuthentication().getCredentials().toString();
+    }
 
 
 }

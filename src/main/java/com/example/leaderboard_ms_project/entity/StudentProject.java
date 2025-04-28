@@ -1,6 +1,7 @@
 package com.example.leaderboard_ms_project.entity;
 
 
+import com.example.leaderboard_ms_project.dto.UserDto;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -8,28 +9,28 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Data
+@Table(name = "student_project")
 public class StudentProject {
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @Column(name = "student", nullable = false)
+    private UUID student;
 
+    @Column(name = "college", nullable = false)
+    private UUID college;
 
+    @Column(name = "project_id", nullable = false)  // Change this line
+    private UUID project;
 
-    @ManyToOne
-    @JoinColumn(name = "student_id",referencedColumnName = "id", nullable = false)
-    private User student; // Assuming User entity represents students
-
-    @ManyToOne
-    @JoinColumn(name = "project_id",referencedColumnName = "id", nullable = false)
-    private Project project;
-
-
-
+    @Column(name = "is_deleted")
     private boolean isDeleted = false;
 
-    private LocalDateTime createdAt=LocalDateTime.now();
+    @Column(name = "created_at")
+    private LocalDateTime createdAt = LocalDateTime.now();
+
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     public UUID getId() {
@@ -40,19 +41,27 @@ public class StudentProject {
         this.id = id;
     }
 
-    public User getStudent() {
+    public UUID getStudent() {
         return student;
     }
 
-    public void setStudent(User student) {
+    public void setStudent(UUID student) {
         this.student = student;
     }
 
-    public Project getProject() {
+    public UUID getCollege() {
+        return college;
+    }
+
+    public void setCollege(UUID college) {
+        this.college = college;
+    }
+
+    public UUID getProject() {
         return project;
     }
 
-    public void setProject(Project project) {
+    public void setProject(UUID project) {
         this.project = project;
     }
 
@@ -80,3 +89,5 @@ public class StudentProject {
         this.updatedAt = updatedAt;
     }
 }
+
+

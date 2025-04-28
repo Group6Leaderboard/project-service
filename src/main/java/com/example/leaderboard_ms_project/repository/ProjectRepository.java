@@ -1,6 +1,5 @@
 package com.example.leaderboard_ms_project.repository;
 
-
 import com.example.leaderboard_ms_project.entity.Project;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -14,26 +13,31 @@ import java.util.UUID;
 @Repository
 public interface ProjectRepository extends JpaRepository<Project, UUID> {
     List<Project> findByIsDeletedFalse();
-    List<Project> findByMentorId(UUID mentorId);
+
     Optional<Project> findByIdAndIsDeletedFalse(UUID id);
 
-    List<Project> findByMentorIdAndIsDeletedFalse(UUID mentorId);
+    // Changed mentorId to mentor
+    List<Project> findByMentorAndIsDeletedFalse(UUID mentor);
 
-    List<Project> findByCollegeIdAndIsDeletedFalse(UUID collegeId);
+    // Changed collegeId to college
+    List<Project> findByCollegeAndIsDeletedFalse(UUID college);
 
-    boolean existsByIdAndCollegeIdAndIsDeletedFalse(UUID projectId, UUID colllegeId);
+    // Changed studentId to student
+    List<Project> findByStudentAndIsDeletedFalse(UUID student);
 
-    @Query("SELECT COALESCE(SUM(p.score), 0) FROM Project p WHERE p.college.id = :collegeId AND p.isDeleted = false")
+    boolean existsByIdAndIsDeletedFalse(UUID projectId);
+
+    // Changed collegeId to college
+    boolean existsByIdAndCollegeAndIsDeletedFalse(UUID projectId, UUID college);
+
+    @Query("SELECT COALESCE(SUM(p.score), 0) FROM Project p WHERE p.college = :collegeId AND p.isDeleted = false")
     int sumScoresByCollegeId(@Param("collegeId") UUID collegeId);
 
     List<Project> findByScoreGreaterThanOrderByScoreDesc(int score);
 
-
-    @Query("SELECT COUNT(p) FROM Project p WHERE p.college.id = :collegeId AND p.isDeleted = false")
+    @Query("SELECT COUNT(p) FROM Project p WHERE p.college = :collegeId AND p.isDeleted = false")
     int countByCollegeId(@Param("collegeId") UUID collegeId);
 
-    @Query("SELECT p FROM Project p WHERE p.college.id = :collegeId")
+    @Query("SELECT p FROM Project p WHERE p.college = :collegeId")
     List<Project> findByCollegeId(@Param("collegeId") UUID collegeId);
-
-
 }

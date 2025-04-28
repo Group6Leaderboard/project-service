@@ -19,8 +19,8 @@ public class CorsConfig {
         // Allow credentials (cookies, authorization headers, etc.)
         config.setAllowCredentials(true);
 
-        // Use allowedOriginPatterns instead of allowedOrigins("*")
-        config.setAllowedOriginPatterns(List.of("*"));
+        // Allow requests from all origins (or replace "*" with specific patterns for more control)
+        config.setAllowedOriginPatterns(List.of("*")); // You can replace "*" with your frontend domain like "http://localhost:3000"
 
         // Allow common HTTP methods
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
