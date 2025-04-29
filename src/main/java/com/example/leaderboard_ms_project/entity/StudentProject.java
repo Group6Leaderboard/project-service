@@ -15,11 +15,11 @@ public class StudentProject {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "student", nullable = false)
+    @Column(name = "student_id", nullable = false)
     private UUID student;
 
-    @Column(name = "college", nullable = false)
-    private UUID college;
+//    @Column(name = "college", nullable = false)
+//    private UUID college;
 
     @Column(name = "project_id", nullable = false)  // Change this line
     private UUID project;
@@ -49,13 +49,13 @@ public class StudentProject {
         this.student = student;
     }
 
-    public UUID getCollege() {
-        return college;
-    }
-
-    public void setCollege(UUID college) {
-        this.college = college;
-    }
+//    public UUID getCollege() {
+//        return college;
+//    }
+//
+//    public void setCollege(UUID college) {
+//        this.college = college;
+//    }
 
     public UUID getProject() {
         return project;

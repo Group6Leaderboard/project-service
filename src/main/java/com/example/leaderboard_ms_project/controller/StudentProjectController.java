@@ -65,13 +65,12 @@ public class StudentProjectController {
 
 
 
-
-    @GetMapping("/projects")
+    @GetMapping("/projects/{userId}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('MENTOR') or hasRole('COLLEGE') or hasRole('STUDENT')")
     public ResponseEntity<ApiResponse<List<ProjectDto>>> getProjectsForStudent(
-            @RequestParam UUID studentId) {
+            @PathVariable UUID userId) {  // Change parameter name to userId
 
-        ApiResponse<List<ProjectDto>> response = studentProjectService.getProjectsForStudents(studentId);
+        ApiResponse<List<ProjectDto>> response = studentProjectService.getProjectsForStudents(userId);
         return ResponseEntity.status(response.getStatus()).body(response);
     }
 
