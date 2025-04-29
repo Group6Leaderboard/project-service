@@ -17,16 +17,16 @@ public class ProjectDto {
     private UUID collegeId;
     private LocalDateTime createdAt;
 
-    public ProjectDto(UUID id, String name, String description, Integer score, UUID mentorId, UUID collegeId, LocalDateTime createdAt) {
-        this.id = id;
-        this.name = name;
-        this.description = description;
-        this.score = score;
-        this.mentorId = mentorId;
-        this.collegeId = collegeId;
-        this.createdAt=createdAt;
-
-    }
+//    public ProjectDto(UUID id, String name, String description, Integer score, UUID mentorId, UUID collegeId, LocalDateTime createdAt) {
+//        this.id = id;
+//        this.name = name;
+//        this.description = description;
+//        this.score = score;
+//        this.mentorId = mentorId;
+//        this.collegeId = collegeId;
+//        this.createdAt=createdAt;
+//
+//    }
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
