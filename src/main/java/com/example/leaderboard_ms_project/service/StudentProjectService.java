@@ -86,7 +86,7 @@ public class StudentProjectService {
             StudentProject studentProject = new StudentProject();
             studentProject.setStudent(studentId);
             studentProject.setProject(projectId);
-            studentProject.setCollege(studentCollegeId);
+//            studentProject.setCollege(studentCollegeId);
             studentProject.setCreatedAt(LocalDateTime.now());
 
             // Save the entity to the repository
@@ -195,7 +195,7 @@ public class StudentProjectService {
         HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
 
         try {
-            String studentUrl = userServiceUrl + "/api/users/" + student;
+            String studentUrl = userServiceUrl + "/api/users/id/" + student;
             Map<String, Object> userMap = restTemplate.exchange(
                     studentUrl,
                     HttpMethod.GET,
@@ -206,13 +206,11 @@ public class StudentProjectService {
             if (userMap == null || userMap.get("id") == null) {
                 throw new ResourceNotFoundException("Student not found with ID: " + student);
             }
-
             List<StudentProject> studentProjects = studentProjectRepository.findByStudentAndIsDeletedFalse(student);
 
             List<ProjectDto> projectDtos = studentProjects.stream()
                     .map(sp -> {
                         try {
-                            // Fetch the Project by its UUID
                             Project project = projectRepository.findById(sp.getProject())
                                     .orElseThrow(() -> new ResourceNotFoundException("Project not found with ID: " + sp.getProject()));
 
@@ -222,6 +220,7 @@ public class StudentProjectService {
                             projectDto.setDescription(project.getDescription());
                             projectDto.setScore(project.getScore());
                             projectDto.setMentorId(project.getMentor());
+
                             projectDto.setCollegeId(project.getCollege());
                             projectDto.setCreatedAt(project.getCreatedAt());
                             return projectDto;

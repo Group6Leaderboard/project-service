@@ -33,7 +33,7 @@ public class ProjectController {
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<ProjectResponseDto>> createProject(@RequestBody ProjectDto projectDto) {
-        System.out.println("In func");
+
         ProjectResponseDto savedProject = projectService.createProject(projectDto);
         return ApiResponse.created(savedProject, "Project created successfully");
     }
@@ -70,6 +70,7 @@ public class ProjectController {
     // Internal API for other microservices to use
     @GetMapping("/internal/exists/{id}")
     public ResponseEntity<Boolean> checkProjectExists(@PathVariable UUID id) {
+        System.out.println("in project point");
         return ResponseEntity.ok(projectService.existsById(id));
     }
 }
